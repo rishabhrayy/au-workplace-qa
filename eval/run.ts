@@ -16,7 +16,7 @@ import { ask, embed, type AskEvent, type Hit, type Provider } from 'ask-rishabh'
 import { loadCorpus, passages } from '../lib/corpus.ts';
 import { WORKPLACE_DOMAIN } from '../lib/domain.ts';
 import { loadEnv } from '../lib/env.ts';
-import { bm25, dense, hybrid, memoryIndex, METHODS, postgresFts, rerank, type Method } from '../lib/search.ts';
+import { bm25, dense, hybrid, memoryIndex, METHODS, postgresFts, rerank, rerankProvider, type Method } from '../lib/search.ts';
 import { gemini } from '../scripts/ingest.ts';
 
 loadEnv();
@@ -33,31 +33,53 @@ const groq: Provider | null = process.env.GROQ_API_KEY
   ? { name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: process.env.GROQ_API_KEY, model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b', maxTokens: 1500, extraBody: { reasoning_effort: 'low' } }
   : null;
 
-// Question embeddings, computed once and shared by every method that uses them
-const vectors = new Map<string, number[]>();
-if (embedder) {
-  const all = questions.map((q) => q.q);
-  const out = await embed(embedder, all, { timeoutMs: 60000 });
-  all.forEach((q, i) => vectors.set(q, out[i]));
+// Question embeddings, computed once and kept on disk: the free tier allows 1,000 embedding
+// inputs a day, so re-running the eval should not spend 105 of them each time
+const CACHE = path.join(here, '.cache', 'question-vectors.json');
+const vectors = new Map<string, number[]>(fs.existsSync(CACHE) ? Object.entries(JSON.parse(fs.readFileSync(CACHE, 'utf8'))) : []);
+const unembedded = questions.map((q) => q.q).filter((q) => !vectors.has(q));
+if (embedder && unembedded.length) {
+  try {
+    const out = await embed(embedder, unembedded, { timeoutMs: 60000 });
+    unembedded.forEach((q, i) => vectors.set(q, out[i]));
+    fs.mkdirSync(path.dirname(CACHE), { recursive: true });
+    fs.writeFileSync(CACHE, JSON.stringify(Object.fromEntries(vectors)));
+  } catch (error) {
+    console.log(`question embeddings unavailable (${(error as Error).message.slice(0, 60)}...), dense methods skipped`);
+  }
 }
+// Dense search is only a fair comparison once every passage has its vector
+const [{ total, embedded }] = (await sql`SELECT count(*)::int AS total, count(embedding)::int AS embedded FROM passages`) as { total: number; embedded: number }[];
+const denseReady = questions.every((q) => vectors.has(q.q)) && total > 0 && embedded === total;
+if (!denseReady) console.log(`dense methods skipped: ${embedded}/${total} passages embedded, ${vectors.size}/${questions.length} questions`);
+
+let rerankFailures = 0;
+const reranker = groq ? rerankProvider(groq.apiKey) : null;
+const reranked = (q: string, candidates: Hit[], k: number) => rerank(reranker!, q, candidates, k, { onFail: () => rerankFailures++, retries: 4 });
 
 async function search(method: Method, q: string, k = 5): Promise<Hit[]> {
   const v = vectors.get(q) ?? null;
   if (method === 'bm25') return bm25(index, q, k);
   if (method === 'postgres-fts') return postgresFts(sql, q, k);
+  if (method === 'bm25-rerank') return reranked(q, bm25(index, q, 15), k);
   if (method === 'dense') return v ? dense(sql, v, k) : [];
   if (method === 'hybrid') return hybrid(index, sql, q, v, k);
-  return rerank(groq!, q, await hybrid(index, sql, q, v, 15), k);
+  return reranked(q, await hybrid(index, sql, q, v, 15), k);
 }
 
-const available = METHODS.filter((m) => (m === 'dense' || m === 'hybrid' ? embedder : m === 'hybrid-rerank' ? embedder && groq : true));
+const needs = { dense: denseReady, hybrid: denseReady, 'bm25-rerank': Boolean(groq), 'hybrid-rerank': denseReady && Boolean(groq) } as Partial<Record<Method, boolean>>;
+const available = METHODS.filter((m) => needs[m] ?? true);
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
-const rows: Record<string, { hit5: number; mrr: number; ms: number; misses: string[] }> = {};
+const rows: Record<string, { hit5: number; mrr: number; ms: number; rerankFailures: number; misses: string[] }> = {};
+// --methods bm25,bm25-rerank runs a subset
+const only = process.argv.find((a) => a.startsWith('--methods='))?.slice(10).split(',');
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-for (const method of available) {
+for (const method of available.filter((m) => !only || only.includes(m))) {
   let hits = 0;
   let reciprocal = 0;
   let time = 0;
+  const failuresBefore = rerankFailures;
   const misses: string[] = [];
   for (const q of answerable) {
     const t0 = performance.now();
@@ -68,15 +90,24 @@ for (const method of available) {
       hits++;
       reciprocal += 1 / (rank + 1);
     } else misses.push(`${q.q} -> ${ranked.slice(0, 3).join(', ') || 'nothing'}`);
+    if (method.endsWith('rerank')) await wait(1000); // pacing; a 429 is waited out inside rerank
   }
-  rows[method] = { hit5: hits / answerable.length, mrr: reciprocal / answerable.length, ms: time / answerable.length, misses };
+  const n = answerable.length;
+  rows[method] = { hit5: hits / n, mrr: reciprocal / n, ms: time / n, rerankFailures: rerankFailures - failuresBefore, misses };
 }
 
 console.log(`\nRetrieval on ${answerable.length} questions (Fair Work Act 2009, ${index.passages.length} passages)\n`);
 console.log(`${'method'.padEnd(15)}${'hit@5'.padStart(8)}${'MRR'.padStart(8)}${'ms/query'.padStart(10)}`);
-for (const [m, r] of Object.entries(rows)) console.log(`${m.padEnd(15)}${pct(r.hit5).padStart(8)}${r.mrr.toFixed(3).padStart(8)}${r.ms.toFixed(0).padStart(10)}`);
+for (const [m, r] of Object.entries(rows)) {
+  const note = r.rerankFailures ? `  (reranker failed ${r.rerankFailures}x, fell back to input order)` : '';
+  console.log(`${m.padEnd(15)}${pct(r.hit5).padStart(8)}${r.mrr.toFixed(3).padStart(8)}${r.ms.toFixed(0).padStart(10)}${note}`);
+}
 const skipped = METHODS.filter((m) => !available.includes(m));
-if (skipped.length) console.log(`(skipped without keys: ${skipped.join(', ')})`);
+if (skipped.length) console.log(`(skipped: ${skipped.join(', ')})`);
+const RESULTS = path.join(here, 'results', `retrieval-${new Date().toISOString().slice(0, 10)}.json`);
+fs.mkdirSync(path.dirname(RESULTS), { recursive: true });
+const previous = fs.existsSync(RESULTS) ? JSON.parse(fs.readFileSync(RESULTS, 'utf8')) : {};
+fs.writeFileSync(RESULTS, `${JSON.stringify({ ...previous, ...rows }, null, 2)}\n`);
 if (process.argv.includes('--misses')) for (const [m, r] of Object.entries(rows)) console.log(`\n${m} misses:\n  ${r.misses.join('\n  ')}`);
 
 // --- full answers ---

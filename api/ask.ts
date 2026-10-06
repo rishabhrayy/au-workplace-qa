@@ -10,7 +10,7 @@ import { ask, buildIndex, chunk, rateLimit, type AskEvent, type Provider } from 
 import corpus from '../data/sections.json' with { type: 'json' };
 import { sectionDocs, type Corpus } from '../lib/corpus.ts';
 import { WORKPLACE_DOMAIN } from '../lib/domain.ts';
-import { bm25, hybrid, rerank } from '../lib/search.ts';
+import { bm25, hybrid, rerank, rerankProvider } from '../lib/search.ts';
 
 const index = buildIndex(chunk(sectionDocs(corpus as Corpus), 1400));
 const sql = process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null;
@@ -22,6 +22,7 @@ const groq: Provider | null = process.env.GROQ_API_KEY
 const gemini: Provider | null = process.env.GEMINI_API_KEY
   ? { name: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', maxTokens: 2500 }
   : null;
+const reranker = process.env.GROQ_API_KEY ? rerankProvider(process.env.GROQ_API_KEY) : null;
 const embedder: Provider | null = process.env.GEMINI_API_KEY
   ? { name: 'gemini-embed', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: process.env.GEMINI_API_KEY, model: 'gemini-embedding-001', extraBody: { dimensions: 768 } }
   : null;
@@ -52,8 +53,8 @@ export async function POST(request: Request): Promise<Response> {
     // Hybrid search over Neon; the reranker reorders the top 15 when Groq is up
     search: async (q, vector, k) => {
       // without a database, keyword search in memory still answers
-      const candidates = sql ? await hybrid(index, sql, q, vector, groq ? 15 : k) : bm25(index, q, groq ? 15 : k);
-      return groq && candidates.length > k ? rerank(groq, q, candidates, k) : candidates.slice(0, k);
+      const candidates = sql ? await hybrid(index, sql, q, vector, reranker ? 15 : k) : bm25(index, q, reranker ? 15 : k);
+      return reranker && candidates.length > k ? rerank(reranker, q, candidates, k) : candidates.slice(0, k);
     },
   });
   const stream = new ReadableStream<Uint8Array>({
