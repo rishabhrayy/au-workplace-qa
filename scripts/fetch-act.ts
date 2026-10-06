@@ -133,7 +133,9 @@ async function main() {
   const seen = new Set<string>();
   const sections: ActSection[] = [];
   for (const s of all) {
-    if (!/^\d+[A-Z]*$/.test(s.number) || seen.has(s.number)) continue; // the 4th volume restarts numbering (Schedules)
+    // Only the body of the Act: its parts are "Part 2-2" style. The transitional schedules restart
+    // section numbering under parts like "Part 13", and would otherwise pass for NES sections.
+    if (!/^\d+[A-Z]*$/.test(s.number) || seen.has(s.number) || !/^Part \d+-\d+\b/.test(s.part)) continue;
     const scope = SCOPE.find((r) => compareSection(s.number, r.from) >= 0 && compareSection(s.number, r.to) <= 0);
     if (!scope || s.text.length < 40) continue;
     seen.add(s.number);
@@ -141,9 +143,11 @@ async function main() {
   }
   const out = { source: 'Fair Work Act 2009 (Cth)', compilation, asAt, licence: 'CC BY 4.0', sections };
   fs.writeFileSync(path.join(ROOT, 'data', 'sections.json'), JSON.stringify(out, null, 1));
-  const byTopic = Object.groupBy(sections, (s) => s.topic);
   console.log(`Compilation ${compilation}, downloaded ${asAt}: ${sections.length} sections`);
-  for (const [topic, list] of Object.entries(byTopic)) console.log(`  ${topic}: ${list!.length} (s ${list![0].number} to s ${list!.at(-1)!.number})`);
+  for (const { topic } of SCOPE) {
+    const list = sections.filter((s) => s.topic === topic);
+    if (list.length) console.log(`  ${topic}: ${list.length} (s ${list[0].number} to s ${list[list.length - 1].number})`);
+  }
 }
 
 if (process.argv[1]?.endsWith('fetch-act.ts')) await main();
