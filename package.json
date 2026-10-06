@@ -1,0 +1,26 @@
+{
+  "name": "au-workplace-qa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Answers questions about Australian pay, leave and workplace rights from official guidance, with citations, and measures four retrieval methods against each other.",
+  "license": "MIT",
+  "scripts": {
+    "fetch": "tsx scripts/fetch-act.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "eval": "tsx eval/run.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "ask-rishabh": "github:rishabhrayy/ask-rishabh#v0.3.0",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

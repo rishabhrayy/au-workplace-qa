@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.*
+data/raw/
+eval/results/*.json
+.vercel
