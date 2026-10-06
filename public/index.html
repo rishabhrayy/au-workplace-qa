@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workplace Q&amp;A (Australia) - Rishabh Ray</title>
+    <meta name="description" content="Plain-English answers about leave, notice, redundancy and unfair dismissal, from the Fair Work Act 2009, with the section behind every claim." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23f6f1e6'/><text x='32' y='44' text-anchor='middle' font-family='Georgia,serif' font-size='38' fill='%232f5d50'>§</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <p class="eyebrow">Fair Work Act 2009, Compilation 73</p>
+        <h1>Workplace Q&amp;A</h1>
+        <p class="lede">Ask about leave, hours, notice, redundancy, unfair dismissal or casual work. Answers come from the Act itself, with the section behind every claim.</p>
+      </header>
+
+      <form id="ask" class="ask" autocomplete="off">
+        <label for="q" class="sr-only">Your question</label>
+        <input id="q" name="q" type="text" maxlength="300" placeholder="e.g. How much notice do I get after 3 years?" required />
+        <button type="submit" id="go">Ask</button>
+      </form>
+      <p class="try" id="try">
+        <span>Try</span>
+        <button type="button">How many sick days do I get a year?</button>
+        <button type="button">How much redundancy pay after 4 years?</button>
+        <button type="button">Do I have to answer work emails after hours?</button>
+        <button type="button">How long do I have to lodge an unfair dismissal claim?</button>
+      </p>
+
+      <section id="answer" class="answer" aria-live="polite" hidden>
+        <p class="question" id="asked"></p>
+        <div class="text" id="text"></div>
+        <ol class="sources" id="sources"></ol>
+      </section>
+
+      <section class="how">
+        <h2>How it works</h2>
+        <p>The National Employment Standards, the rules on casual employment, payment of wages, the right to disconnect and unfair dismissal: 161 sections of the Act, split into 245 passages. Each question is matched two ways, by keywords and by meaning, and the two rankings are merged; a language model then reorders the top 15 by how directly they answer it. The answering model may only use those passages, must cite them, and must say so when the Act does not answer the question, as with dollar figures like the minimum wage, which the Fair Work Commission sets.</p>
+        <p>Before anything goes live it is tested on 105 plain-English questions with checked answers. The method comparison and the answer scores are in the <a href="https://github.com/rishabhrayy/au-workplace-qa">project README</a>.</p>
+      </section>
+
+      <footer class="fine">
+        <p><strong>Not legal advice.</strong> This is a portfolio project that summarises the law in general terms. For your situation, contact the Fair Work Ombudsman on 13 13 94 or at fairwork.gov.au. Not affiliated with, or endorsed by, the Fair Work Ombudsman, the Fair Work Commission or the Commonwealth.</p>
+        <p>Based on content from the Federal Register of Legislation at 7 October 2026. For the latest information on Australian Government legislation please go to <a href="https://www.legislation.gov.au">https://www.legislation.gov.au</a>. Licensed under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; converted to plain text and split into passages.</p>
+        <p>Built by <a href="https://rishabhray.me">Rishabh Ray</a> on the <a href="https://github.com/rishabhrayy/ask-rishabh">ask-rishabh</a> engine. <a href="https://github.com/rishabhrayy/au-workplace-qa">Code</a>.</p>
+      </footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

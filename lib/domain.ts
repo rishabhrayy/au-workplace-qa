@@ -29,6 +29,7 @@ export const WORKPLACE_DOMAIN: Partial<Domain> = {
   notFound: 'The sections of the Fair Work Act 2009 in this tool do not cover that. The Fair Work Ombudsman (fairwork.gov.au, 13 13 94) can help with your situation.',
   blockedReply: SCOPE,
   allowedHosts: /^(?:[a-z0-9-]+\.)*(legislation\.gov\.au|fairwork\.gov\.au|fwc\.gov\.au|rishabhray\.me)$/i,
+  fallbackIntro: 'The AI model is unavailable right now, so here is what the Act says:',
   smallTalk: {
     greeting: 'Hi! Ask a question about pay, leave, notice, redundancy or unfair dismissal under the Fair Work Act 2009.',
     thanks: 'Glad that helped. Anything else about your workplace entitlements?',

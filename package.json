@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
-    "ask-rishabh": "github:rishabhrayy/ask-rishabh#v0.3.1",
+    "ask-rishabh": "github:rishabhrayy/ask-rishabh#v0.3.2",
     "fflate": "^0.8.3"
   },
   "devDependencies": {

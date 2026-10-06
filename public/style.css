@@ -1,0 +1,211 @@
+/* An annotated statute: paper, ink, a single green for law, section numbers in the margin. */
+:root {
+  --paper: #f6f1e6;
+  --sheet: #fffdf8;
+  --ink: #1f1c17;
+  --soft: #5c564b;
+  --muted: #8a8374;
+  --rule: #e2d9c6;
+  --law: #2f5d50;
+  --law-tint: #e5eee9;
+  --mark: #f3e3a8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #16140f;
+    --sheet: #1e1b15;
+    --ink: #ece6d8;
+    --soft: #b9b1a1;
+    --muted: #8a8374;
+    --rule: #3a342a;
+    --law: #8cc2ad;
+    --law-tint: #233029;
+    --mark: #5a4b17;
+    color-scheme: dark;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.6 'Source Serif 4', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 16px 64px;
+}
+.eyebrow {
+  font: 600 12px/1 Inter, system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--law);
+  margin: 0 0 14px;
+}
+h1 {
+  font-size: clamp(40px, 7vw, 60px);
+  line-height: 1;
+  margin: 0 0 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.lede {
+  font-size: 19px;
+  color: var(--soft);
+  margin: 0 0 28px;
+  max-width: 60ch;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.ask {
+  display: flex;
+  gap: 8px;
+}
+.ask input {
+  flex: 1;
+  min-width: 0;
+  font: 400 17px/1.4 Inter, system-ui, sans-serif;
+  padding: 14px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--sheet);
+  color: var(--ink);
+}
+.ask input:focus-visible,
+.ask button:focus-visible,
+.try button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--law);
+  outline-offset: 2px;
+}
+.ask button {
+  font: 600 16px Inter, system-ui, sans-serif;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--law);
+  color: var(--sheet);
+  cursor: pointer;
+}
+.ask button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.try {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 36px;
+  font: 13px Inter, system-ui, sans-serif;
+  color: var(--muted);
+}
+.try button {
+  font: inherit;
+  color: var(--soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.try button:hover {
+  border-color: var(--law);
+  color: var(--law);
+}
+.answer {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--law);
+  border-radius: 6px;
+  padding: 22px 24px;
+  margin-bottom: 40px;
+}
+.question {
+  font: 600 13px Inter, system-ui, sans-serif;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.text {
+  font-size: 18px;
+  white-space: pre-line;
+  min-height: 1.6em;
+}
+.text .cite {
+  font: 600 11px Inter, system-ui, sans-serif;
+  color: var(--law);
+  background: var(--law-tint);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 2px;
+  vertical-align: 2px;
+}
+.text.waiting::after {
+  content: 'Reading the Act';
+  font: 14px Inter, system-ui, sans-serif;
+  color: var(--muted);
+}
+.sources {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px dashed var(--rule);
+  display: grid;
+  gap: 6px;
+  font: 14px/1.4 Inter, system-ui, sans-serif;
+}
+.sources li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 6px;
+  color: var(--soft);
+}
+.sources .n {
+  color: var(--law);
+  font-weight: 600;
+}
+.sources a {
+  color: var(--ink);
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.how h2 {
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+.how p {
+  color: var(--soft);
+  margin: 0 0 14px;
+  max-width: 65ch;
+}
+a {
+  color: var(--law);
+}
+.fine {
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+  font: 13px/1.6 Inter, system-ui, sans-serif;
+  color: var(--muted);
+}
+.fine p {
+  margin: 0 0 10px;
+}
+@media (max-width: 560px) {
+  .page {
+    padding-top: 36px;
+  }
+  .answer {
+    padding: 18px 16px;
+  }
+}
