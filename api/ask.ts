@@ -24,6 +24,14 @@ const groq: Provider | null = process.env.GROQ_API_KEY
 const gemini: Provider | null = process.env.GEMINI_API_KEY
   ? { name: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', maxTokens: 2500 }
   : null;
+// Backups on their own quotas: Groq and Gemini limit tokens per model per day, so a second model
+// from each keeps answering when the first runs out or is overloaded
+const groqFast: Provider | null = process.env.GROQ_API_KEY
+  ? { name: 'groq-fast', baseUrl: 'https://api.groq.com/openai/v1', apiKey: process.env.GROQ_API_KEY, model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b', maxTokens: 1500, extraBody: { reasoning_effort: 'low' } }
+  : null;
+const gemini2: Provider | null = process.env.GEMINI_API_KEY
+  ? { name: 'gemini-2', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-lite-latest', maxTokens: 2500 }
+  : null;
 const reranker = process.env.GROQ_API_KEY ? rerankProvider(process.env.GROQ_API_KEY) : null;
 const embedder: Provider | null = process.env.GEMINI_API_KEY
   ? { name: 'gemini-embed', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: process.env.GEMINI_API_KEY, model: 'gemini-embedding-001', extraBody: { dimensions: 768 } }
@@ -48,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
   const encoder = new TextEncoder();
   const events = ask(question, {
     index,
-    providers: [groq, gemini].filter((p): p is Provider => Boolean(p)),
+    providers: [groq, gemini, groqFast, gemini2].filter((p): p is Provider => Boolean(p)),
     embedder,
     domain: WORKPLACE_DOMAIN,
     signal: cancel.signal,
