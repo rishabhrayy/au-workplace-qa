@@ -1,0 +1,62 @@
+{
+  "bm25": {
+    "hit5": 0.8217821782178217,
+    "mrr": 0.6412541254125413,
+    "ms": 0.522345544554463,
+    "rerankFailures": 0,
+    "misses": [
+      "Can my boss refuse my holiday request? -> 114, 114, 65A",
+      "What happens to my unused annual leave when I quit? -> 94, 93, 88",
+      "Can I use sick leave to look after my sick child? -> 77A, 78, 77A",
+      "Do I need a medical certificate for sick leave? -> 82, 73, 73",
+      "When do I have to tell my employer I'm taking sick leave? -> 74, 94, 79",
+      "Will my employer keep my family violence leave confidential? -> 106A, 106B, 106BA",
+      "How long is unpaid parental leave? -> 72A, 72A, 77",
+      "How long do I need to have worked somewhere to get parental leave? -> 113, 113, 74",
+      "Am I guaranteed my job back after parental leave? -> 82, 73, 81A",
+      "Is my employer allowed to contact me about changes while I'm on parental leave? -> 74, 79, 333M",
+      "Do casuals get unpaid parental leave? -> 72A, 72A, 72A",
+      "Can I ask to work from home because I have a young child? -> 73, 82, 78",
+      "Who doesn't get notice of termination? -> 117, 118, 117",
+      "Do casual employees get redundancy pay? -> 119, 120, 119",
+      "Can a casual employee become permanent? -> 384, 15A, 15A",
+      "How long does my employer have to respond if I ask to convert from casual? -> 333M, 66AAD, 113",
+      "How often must I be paid? -> 100, 92, 101",
+      "Can my employer deduct money from my pay? -> 325, 323, 332"
+    ]
+  },
+  "dense": {
+    "hit5": 0.9702970297029703,
+    "mrr": 0.9265676567656765,
+    "ms": 257.0370891089107,
+    "rerankFailures": 0,
+    "misses": [
+      "Do I need a medical certificate for sick leave? -> 82, 78A, 82A",
+      "Do casual employees get redundancy pay? -> 119, 121, 119",
+      "Can a casual employee become permanent? -> 15A, 67, 384"
+    ]
+  },
+  "hybrid": {
+    "hit5": 0.9306930693069307,
+    "mrr": 0.7716171617161717,
+    "ms": 391.8657059405946,
+    "rerankFailures": 0,
+    "misses": [
+      "Do I need a medical certificate for sick leave? -> 82, 73, 73",
+      "When do I have to tell my employer I'm taking sick leave? -> 74, 85, 88",
+      "Will my employer keep my family violence leave confidential? -> 106A, 106B, 106BA",
+      "How long is unpaid parental leave? -> 77, 79B, 76",
+      "Do casuals get unpaid parental leave? -> 72A, 79B, 77",
+      "Do casual employees get redundancy pay? -> 119, 120, 121",
+      "Can a casual employee become permanent? -> 384, 15A, 15A"
+    ]
+  },
+  "dense-rerank": {
+    "hit5": 1,
+    "mrr": 0.9669966996699669,
+    "ms": 10521.643869306929,
+    "rerankFailures": 0,
+    "misses": [],
+    "reranker": "qwen/qwen3.8-27b (reasoning none)"
+  }
+}

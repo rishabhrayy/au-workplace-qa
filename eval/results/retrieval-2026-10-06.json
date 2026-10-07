@@ -2,7 +2,7 @@
   "bm25": {
     "hit5": 0.8217821782178217,
     "mrr": 0.6412541254125413,
-    "ms": 0.5450039603960843,
+    "ms": 0.5120722772277247,
     "rerankFailures": 0,
     "misses": [
       "Can my boss refuse my holiday request? -> 114, 114, 65A",
@@ -99,6 +99,7 @@
       "Can a casual employee become permanent? -> 384, 15A, 15A",
       "How long does my employer have to respond if I ask to convert from casual? -> 66AAD, 333M, 113",
       "How often must I be paid? -> 100, 92, 101"
-    ]
+    ],
+    "reranker": "openai/gpt-oss-20b (reasoning low)"
   }
 }
