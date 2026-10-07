@@ -5,8 +5,8 @@ import { buildIndex, fuse, retrieve, tokenize, type Hit, type Passage, type Prov
  * The retrieval methods being compared. Each takes a question (and its embedding, if there is
  * one) and returns ranked passages. They share one corpus so the comparison is like for like.
  */
-export type Method = 'bm25' | 'postgres-fts' | 'bm25-rerank' | 'dense' | 'hybrid' | 'hybrid-rerank';
-export const METHODS: Method[] = ['bm25', 'postgres-fts', 'bm25-rerank', 'dense', 'hybrid', 'hybrid-rerank'];
+export type Method = 'bm25' | 'postgres-fts' | 'bm25-rerank' | 'dense' | 'dense-rerank' | 'hybrid' | 'hybrid-rerank';
+export const METHODS: Method[] = ['bm25', 'postgres-fts', 'bm25-rerank', 'dense', 'dense-rerank', 'hybrid', 'hybrid-rerank'];
 
 type Row = { id: string; section: string; title: string; url: string; body: string; score: number };
 const toHit = (r: Row): Hit => ({ passage: { id: r.id, docId: r.section, title: r.title, url: r.url, text: r.body }, score: Number(r.score) });

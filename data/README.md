@@ -1,6 +1,6 @@
 # Data
 
-`sections.json` holds 169 sections of the **Fair Work Act 2009 (Cth)**, Compilation No. 73 (in force from 7 July 2026), parsed from the EPUB served by the Federal Register of Legislation's API on 7 October 2026 (`npm run fetch`).
+`sections.json` holds 161 sections of the **Fair Work Act 2009 (Cth)**, Compilation No. 73 (in force from 7 July 2026), parsed from the EPUB served by the Federal Register of Legislation's API on 7 October 2026 (`npm run fetch`).
 
 Based on content from the Federal Register of Legislation at 7 October 2026. For the latest information on Australian Government legislation please go to https://www.legislation.gov.au.
 

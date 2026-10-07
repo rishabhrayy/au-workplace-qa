@@ -40,8 +40,21 @@ const vectors = new Map<string, number[]>(fs.existsSync(CACHE) ? Object.entries(
 const unembedded = questions.map((q) => q.q).filter((q) => !vectors.has(q));
 if (embedder && unembedded.length) {
   try {
-    const out = await embed(embedder, unembedded, { timeoutMs: 60000 });
-    unembedded.forEach((q, i) => vectors.set(q, out[i]));
+    // batches of 20 with a pause, and a minute's wait on a 429: the per-minute limit counts inputs
+    for (let i = 0; i < unembedded.length; i += 20) {
+      const batch = unembedded.slice(i, i + 20);
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const out = await embed(embedder, batch, { timeoutMs: 60000 });
+          batch.forEach((q, j) => vectors.set(q, out[j]));
+          break;
+        } catch (error) {
+          if (!/ 429/.test((error as Error).message) || attempt >= 3) throw error;
+          await new Promise((r) => setTimeout(r, 65000));
+        }
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
     fs.mkdirSync(path.dirname(CACHE), { recursive: true });
     fs.writeFileSync(CACHE, JSON.stringify(Object.fromEntries(vectors)));
   } catch (error) {
@@ -57,17 +70,30 @@ let rerankFailures = 0;
 const reranker = groq ? rerankProvider(groq.apiKey) : null;
 const reranked = (q: string, candidates: Hit[], k: number) => rerank(reranker!, q, candidates, k, { onFail: () => rerankFailures++, retries: 4 });
 
+// A dropped connection to Neon retries rather than ending a long run
 async function search(method: Method, q: string, k = 5): Promise<Hit[]> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await searchOnce(method, q, k);
+    } catch (error) {
+      if (attempt >= 3 || !/fetch failed|ECONNRESET|connecting/i.test(String(error))) throw error;
+      await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+    }
+  }
+}
+
+async function searchOnce(method: Method, q: string, k = 5): Promise<Hit[]> {
   const v = vectors.get(q) ?? null;
   if (method === 'bm25') return bm25(index, q, k);
   if (method === 'postgres-fts') return postgresFts(sql, q, k);
   if (method === 'bm25-rerank') return reranked(q, bm25(index, q, 15), k);
   if (method === 'dense') return v ? dense(sql, v, k) : [];
+  if (method === 'dense-rerank') return v ? reranked(q, await dense(sql, v, 15), k) : [];
   if (method === 'hybrid') return hybrid(index, sql, q, v, k);
   return reranked(q, await hybrid(index, sql, q, v, 15), k);
 }
 
-const needs = { dense: denseReady, hybrid: denseReady, 'bm25-rerank': Boolean(groq), 'hybrid-rerank': denseReady && Boolean(groq) } as Partial<Record<Method, boolean>>;
+const needs = { dense: denseReady, 'dense-rerank': denseReady && Boolean(groq), hybrid: denseReady, 'bm25-rerank': Boolean(groq), 'hybrid-rerank': denseReady && Boolean(groq) } as Partial<Record<Method, boolean>>;
 const available = METHODS.filter((m) => needs[m] ?? true);
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const rows: Record<string, { hit5: number; mrr: number; ms: number; rerankFailures: number; misses: string[] }> = {};
@@ -118,22 +144,40 @@ if (process.argv.includes('--answers')) {
   let withNumbers = 0;
   let unsupported = 0;
   let honest = 0;
+  let fallbacks = 0;
   const notes: string[] = [];
   for (const q of questions) {
     let text = '';
     let mode = '';
     let used: Hit[] = [];
-    const events: AskEvent[] = [];
-    for await (const e of ask(q.q, {
-      providers: [groq],
-      domain: WORKPLACE_DOMAIN,
-      search: async (question, _v, k) => (used = await search(method, question, k)),
-    })) events.push(e);
-    for (const e of events) {
-      if (e.type === 'delta') text += e.text;
-      if (e.type === 'replace') text = e.text;
-      if (e.type === 'done') mode = e.mode;
+    // A rate-limited model gives the no-model fallback: wait for the minute to roll over and ask
+    // again, so the score is about the answers, not the free tier's quota
+    for (let attempt = 0; attempt < 4; attempt++) {
+      text = '';
+      const events: AskEvent[] = [];
+      try {
+        for await (const e of ask(q.q, {
+          providers: [groq],
+          domain: WORKPLACE_DOMAIN,
+          search: async (question, _v, k) => (used = await search(method, question, k)),
+        })) events.push(e);
+      } catch (error) {
+        // one failed question (a database or network blip) must not end a 40-minute run
+        console.error(`  error on "${q.q}": ${(error as Error).message.slice(0, 120)}`);
+        mode = 'error';
+        await wait(10000);
+        continue;
+      }
+      for (const e of events) {
+        if (e.type === 'delta') text += e.text;
+        if (e.type === 'replace') text = e.text;
+        if (e.type === 'done') mode = e.mode;
+      }
+      if (mode !== 'fallback') break;
+      await wait(30000);
     }
+    if (mode === 'fallback' || mode === 'error') fallbacks++;
+    console.error(`  ${questions.indexOf(q) + 1}/${questions.length} ${mode}`);
     const flat = text.toLowerCase().replace(/[‘’]/g, "'");
     if (q.notInAct) {
       const says = /not (in|covered|set out|specified|stated)|doesn'?t (say|set|specify|cover)|does not (say|set|specify|cover|state)|isn'?t (in|covered|set)|no (figure|amount|rate|percentage)|fair work commission|award/i.test(flat);
@@ -155,11 +199,15 @@ if (process.argv.includes('--answers')) {
         notes.push(`UNSUPPORTED NUMBER  ${q.q} -> ${claims.filter((n) => !source.includes(n)).join(', ')}`);
       }
     }
-    await new Promise((r) => setTimeout(r, 1500)); // stay inside the free tier's rate limits
+    await wait(15000); // about four answers a minute fits the free tier's 8,000 tokens
   }
   console.log(`\nAnswers with ${method}:`);
   console.log(`  fact accuracy           ${pct(factOk / answerable.length)} (${factOk}/${answerable.length})`);
   console.log(`  unsupported numbers     ${unsupported} of ${withNumbers} answers that state a number`);
   console.log(`  honest when not in Act  ${honest}/${questions.length - answerable.length}`);
+  if (fallbacks) console.log(`  (${fallbacks} answers were the no-model fallback or an error after 4 tries)`);
+  const ANSWERS = path.join(here, 'results', `answers-${method}-${new Date().toISOString().slice(0, 10)}.json`);
+  fs.writeFileSync(ANSWERS, `${JSON.stringify({ method, factAccuracy: factOk / answerable.length, factOk, answerable: answerable.length, unsupported, withNumbers, honest, notInAct: questions.length - answerable.length, fallbacks, notes }, null, 2)}
+`);
   if (notes.length) console.log(`\n${notes.join('\n')}`);
 }
