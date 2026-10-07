@@ -2,15 +2,17 @@
  * POST /api/ask { "question": "..." } -> application/x-ndjson stream of AskEvent lines.
  *
  * The ask-rishabh engine with the workplace domain: guard (no private-topic refusals, since pay
- * is the subject), hybrid retrieval over Neon (BM25 in memory + pgvector), the reranker when
- * Groq is available, a per-request canary and output check, and provider fallbacks.
+ * is the subject), dense retrieval over Neon pgvector reordered by a reranker (the best method
+ * in eval/: 100% hit@5 on 101 questions), a per-request canary and output check, and fallbacks
+ * at every step: no embedding or no database means keyword search, no reranker means the
+ * retrieval order, no model means the extractive answer.
  */
 import { neon } from '@neondatabase/serverless';
 import { ask, buildIndex, chunk, rateLimit, type AskEvent, type Provider } from 'ask-rishabh';
 import corpus from '../data/sections.json' with { type: 'json' };
 import { sectionDocs, type Corpus } from '../lib/corpus.ts';
 import { WORKPLACE_DOMAIN } from '../lib/domain.ts';
-import { bm25, hybrid, rerank, rerankProvider } from '../lib/search.ts';
+import { bm25, dense, rerank, rerankProvider } from '../lib/search.ts';
 
 const index = buildIndex(chunk(sectionDocs(corpus as Corpus), 1400));
 const sql = process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null;
@@ -50,10 +52,18 @@ export async function POST(request: Request): Promise<Response> {
     embedder,
     domain: WORKPLACE_DOMAIN,
     signal: cancel.signal,
-    // Hybrid search over Neon; the reranker reorders the top 15 when Groq is up
+    // Dense search over Neon, then the reranker reorders the top 15. On this corpus dense beat
+    // hybrid: fusing in the weaker BM25 list pulled good results down (see the README)
     search: async (q, vector, k) => {
-      // without a database, keyword search in memory still answers
-      const candidates = sql ? await hybrid(index, sql, q, vector, reranker ? 15 : k) : bm25(index, q, reranker ? 15 : k);
+      const n = reranker ? 15 : k;
+      let candidates = bm25(index, q, n);
+      if (sql && vector) {
+        try {
+          candidates = await dense(sql, vector, n);
+        } catch {
+          // the database is down or slow: keyword search in memory still answers
+        }
+      }
       return reranker && candidates.length > k ? rerank(reranker, q, candidates, k) : candidates.slice(0, k);
     },
   });

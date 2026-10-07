@@ -74,7 +74,16 @@ const reranked = (q: string, candidates: Hit[], k: number) => rerank(reranker!, 
 async function search(method: Method, q: string, k = 5): Promise<Hit[]> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await searchOnce(method, q, k);
+      // a connection that died (a laptop asleep mid-request) hangs forever without this
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          searchOnce(method, q, k),
+          new Promise<never>((_, no) => (timer = setTimeout(() => no(new Error('fetch failed: timed out')), 120000))),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
     } catch (error) {
       if (attempt >= 3 || !/fetch failed|ECONNRESET|connecting/i.test(String(error))) throw error;
       await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
@@ -117,6 +126,8 @@ for (const method of available.filter((m) => !only || only.includes(m))) {
       reciprocal += 1 / (rank + 1);
     } else misses.push(`${q.q} -> ${ranked.slice(0, 3).join(', ') || 'nothing'}`);
     if (method.endsWith('rerank')) await wait(1000); // pacing; a 429 is waited out inside rerank
+    const done = answerable.indexOf(q) + 1;
+    if (done % 10 === 0) console.error(`  ${method} ${done}/${answerable.length} ${new Date().toTimeString().slice(0, 8)}`);
   }
   const n = answerable.length;
   rows[method] = { hit5: hits / n, mrr: reciprocal / n, ms: time / n, rerankFailures: rerankFailures - failuresBefore, misses };

@@ -108,6 +108,16 @@ describe('reranker', () => {
     expect(out.map((h) => h.passage.id)).toEqual(['a', 'b']);
   });
 
+  it('does not wait out a daily limit: a long retry-after falls back at once', async () => {
+    const fetch = vi.fn(async () => new Response('daily limit', { status: 429, headers: { 'retry-after': '747' } }));
+    vi.stubGlobal('fetch', fetch);
+    const onFail = vi.fn();
+    const out = await rerank(provider, 'q', hits(['a', 'b']), 2, { retries: 4, onFail });
+    expect(out.map((h) => h.passage.id)).toEqual(['a', 'b']);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(onFail).toHaveBeenCalledOnce();
+  });
+
   it('waits out a rate limit when asked to retry', async () => {
     vi.useFakeTimers();
     const fetch = vi

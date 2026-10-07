@@ -71,8 +71,9 @@ export async function rerank(provider: Provider, q: string, candidates: Hit[], k
     let res: Response;
     for (let attempt = 0; ; attempt++) {
       res = await rerankRequest(provider, q, list);
-      if (res.status !== 429 || attempt >= (opts.retries ?? 0)) break;
       const after = Number(res.headers.get('retry-after')) || 20;
+      // a wait of minutes means a daily limit, not a busy minute: fall back now instead of hanging
+      if (res.status !== 429 || attempt >= (opts.retries ?? 0) || after > 60) break;
       await new Promise((r) => setTimeout(r, (after + 1) * 1000));
     }
     if (!res.ok) throw new Error(String(res.status));
@@ -109,12 +110,14 @@ function rerankRequest(provider: Provider, q: string, list: string) {
     });
 }
 
-/** The reranker's model: small and fast, on its own quota so it never starves the answers */
+/** The reranker's model: fast, no reasoning, and on its own quota so it never starves the answers */
 export const rerankProvider = (apiKey: string): Provider => ({
   name: 'groq-rerank',
   baseUrl: 'https://api.groq.com/openai/v1',
   apiKey,
-  model: process.env.GROQ_RERANK_MODEL || 'openai/gpt-oss-20b',
-  maxTokens: 1000,
-  extraBody: { reasoning_effort: 'low' },
+  model: process.env.GROQ_RERANK_MODEL || 'qwen/qwen3.8-27b',
+  maxTokens: 300,
+  // ranking needs no hidden reasoning: off, a rerank is ~1,500 tokens instead of several thousand,
+  // which matters against a free tier of 200,000 tokens a day per model
+  extraBody: { reasoning_effort: 'none' },
 });
